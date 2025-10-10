@@ -1,7 +1,16 @@
+import 'package:NutriCam/loading_page.dart';
+import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
+import 'package:provider/provider.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(
     DevicePreview(
       enabled: true, // Cambia a false en producción
@@ -15,43 +24,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      useInheritedMediaQuery: true,           // Necesario para Device Preview
-      locale: DevicePreview.locale(context),  // Para simular diferentes locales
-      builder: DevicePreview.appBuilder,      // Hace que la app se adapte al dispositivo simulado
-      debugShowCheckedModeBanner: false,
-      home: const HomePage(),
-    );
-  }
-}
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => NutriScamModuleProvider()),
+      ],
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Device Preview 1.1.0 Demo')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              '¡Hola desde Device Preview 1.1.0!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Botón presionado')),
-                );
-              },
-              child: const Text('Probar botón'),
-            ),
-          ],
-        ),
+      child: MaterialApp(
+        useInheritedMediaQuery: true,
+        locale: DevicePreview.locale(context),
+        builder: DevicePreview.appBuilder,
+        debugShowCheckedModeBanner: false,
+        home: const LoadingPage(),
       ),
     );
   }
