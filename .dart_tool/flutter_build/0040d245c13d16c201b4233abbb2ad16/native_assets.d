@@ -1,0 +1,1 @@
+ /Users/mac/Documents/pruebaNutri/NutriCam/.dart_tool/flutter_build/0040d245c13d16c201b4233abbb2ad16/native_assets.yaml: 

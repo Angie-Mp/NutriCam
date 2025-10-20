@@ -5,7 +5,7 @@ class NutrientBarWidget extends StatelessWidget {
   final double valorActual;
   final double valorMeta;
   final Color color;
-  final double fontSize; // nuevo parámetro para el tamaño de letra
+  final double fontSize;
 
   const NutrientBarWidget({
     Key? key,
@@ -13,7 +13,7 @@ class NutrientBarWidget extends StatelessWidget {
     required this.valorActual,
     required this.valorMeta,
     required this.color,
-    this.fontSize = 12, // valor por defecto 12
+    this.fontSize = 12,
   }) : super(key: key);
 
   @override
@@ -46,7 +46,7 @@ class NutrientBarWidget extends StatelessWidget {
         Text(
           "${valorActual.toStringAsFixed(1)} / ${valorMeta.toStringAsFixed(1)}g",
           style: const TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               color: Colors.black45
           ),
         ),

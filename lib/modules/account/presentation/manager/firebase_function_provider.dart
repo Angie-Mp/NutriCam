@@ -1,20 +1,17 @@
-import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'package:NutriCam/core/widget/toast_widget.dart';
 import 'package:NutriCam/modules/account/data/data_sources/content_remote_data_sources_impl.dart';
-import 'package:NutriCam/modules/account/data/data_sources/permission/permissions_packages.dart';
 import 'package:NutriCam/modules/account/data/models/create_account_model.dart';
 import 'package:NutriCam/modules/account/data/models/create_objetive_user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class NutriScamModuleProvider extends ChangeNotifier {
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
+  final FirebaseFirestore firebaseFirestore = FirebaseFirestore.instance;
   final AccountRepositoryImpl accountRepositoryImpl = AccountRepositoryImpl();
 
   bool _loading = false;
@@ -28,6 +25,35 @@ class NutriScamModuleProvider extends ChangeNotifier {
 
   CreateAccountUserModel? _createAccountUserModel;
   CreateAccountUserModel? get createAccountUserModel => _createAccountUserModel;
+
+  double _uploadProgress = 0.0;
+  double get uploadProgress => _uploadProgress;
+
+  File? image;
+  List<Map<String, dynamic>> detections = [];
+
+  bool cargando = true;
+  double caloriasTotalesHoy = 0;
+  double caloriasObjetivo = 0;
+  double totalProteina = 0;
+  double totalCarbs = 0;
+  double totalGrasa = 0;
+  double totalFibra = 0;
+  double peso = 0;
+
+  double altura = 0;
+  int edad = 0;
+  String sexo = '';
+  String objetivo = '';
+  //barras nutricionales
+
+
+  //Metas diarias (calculadas con Gemini)
+  double metasCalorias = 0;
+  double metasProteina = 0;
+  double metasGrasa = 0;
+  double metasCarbs = 0;
+  double metasFibra = 0;
 
   /// Registrar usuario
   Future<void> createAccountUser(
@@ -113,7 +139,6 @@ class NutriScamModuleProvider extends ChangeNotifier {
     }
   }
 
-
   ///iniciar sesion
   Future<bool> loginUserAccount(String email, String password) async {
     _loading = true;
@@ -125,245 +150,232 @@ class NutriScamModuleProvider extends ChangeNotifier {
     return success;
   }
 
-
-
-
-
-  double _uploadProgress = 0.0;
-  double get uploadProgress => _uploadProgress;
-  /// Guardar foto con detecciones
-  Future<void> savePhotoWithImageKit2(File image, List<Map<String, dynamic>> detections) async {
-    _loading = true;
-    _uploadProgress = 0.0;
-    notifyListeners();
-
-    try {
-      final bytes = await image.readAsBytes();
-
-      await accountRepositoryImpl.savePhotoWithImageKitImpl(
-        bytes: bytes,
-        detections: detections,
-        onProgress: (progress) {
-          _uploadProgress = progress;
-          notifyListeners();
-        },
-      );
-
-      ToastWidget().toastSuccess("Foto y datos guardados ✅");
-    } catch (e) {
-      ToastWidget().toastError("Error al guardar: $e");
-    } finally {
-      _loading = false;
-      _uploadProgress = 0.0;
-      notifyListeners();
-    }
-  }
-  Future<void> savePhotoWithImageKit(File image, List<Map<String, dynamic>> detections) async {
-    _loading = true;
-    _uploadProgress = 0.0;
-    notifyListeners();
-
-    try {
-      final bytes = await image.readAsBytes();
-
-      await accountRepositoryImpl.savePhotoWithImageKitImpl(
-        bytes: bytes,
-        detections: detections,
-        onProgress: (progress) {
-          _uploadProgress = progress;
-          notifyListeners();
-        },
-      );
-
-      // 🔹 Calcular los totales de la comida recién agregada
-      double calorias = 0;
-      double proteina = 0;
-      double carbs = 0;
-      double grasa = 0;
-      double fibra = 0;
-
-      for (var det in detections) {
-        final nutrition = det['nutrition'] as Map<String, dynamic>;
-        calorias += (nutrition['calories'] ?? 0).toDouble();
-        proteina += (nutrition['protein'] ?? 0).toDouble();
-        carbs += (nutrition['carbs'] ?? 0).toDouble();
-        grasa += (nutrition['fat'] ?? 0).toDouble();
-        fibra += (nutrition['fiber'] ?? 0).toDouble();
-      }
-
-      // 🔹 Actualizar provider sin recargar toda la vista
-      actualizarValoresNutricionales(
-        calorias: calorias,
-        proteina: proteina,
-        grasa: grasa,
-        carbs: carbs,
-        fibra: fibra,
-      );
-
-      ToastWidget().toastSuccess("Foto y datos guardados ✅");
-    } catch (e) {
-      ToastWidget().toastError("Error al guardar: $e");
-    } finally {
-      _loading = false;
-      _uploadProgress = 0.0;
-      notifyListeners();
-    }
-  }
-
-
-  /// ------------------------------------------- ///
-
-  File? image;
-  List<Map<String, dynamic>> detections = [];
-
-  /// Analiza una imagen con Roboflow + Nutritionix
-  Future<void> analyzeFood(File imageFile) async {
-    _loading = true;
-    notifyListeners();
-
-    try {
-      image = imageFile;
-      detections = await accountRepositoryImpl.analyzeFood(imageFile);
-
-      // 🔹 Mostrar resultados en la consola
-      for (final det in detections) {
-        final label = det['rawLabel'] ?? 'Desconocido';
-        final nutrition = det['nutrition'] as Map<String, dynamic>? ?? {};
-        final cal = nutrition['calories'] ?? 'N/D';
-        final prot = nutrition['protein'] ?? 'N/D';
-        final fat = nutrition['fat'] ?? 'N/D';
-        final carb = nutrition['carbs'] ?? 'N/D';
-        debugPrint("✅ Detectado: "
-            "$label | " "Cal: $cal kcal | Prot: $prot g | Gras: $fat g | Carb: $carb g"
-        ); }
-
-    } catch (e) {
-      debugPrint("❌ Error en análisis: $e");
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
+  ///limpiar img + datos
   void clear() {
     image = null;
     detections = [];
     notifyListeners();
   }
 
-
-
-///------------------------------
-///
-
-  ///
-///
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  bool cargando = true;
-
-  double caloriasTotalesHoy = 0;
-  double caloriasObjetivo = 0;
-  double totalProteina = 0;
-  double totalCarbs = 0;
-  double totalGrasa = 0;
-  double totalFibra = 0;
-  double peso = 0;
-
-  ///  Cargar datos de Firestore + cálculos de TDEE
-  Future<void> obtenerDatos() async {
-    cargando = true;
+  ///analiza la img + gemni
+  Future<void> analyzeFoodWithGemini(File imageFile) async {
+    _loading = true;
+    _uploadProgress = 0.0;
+    image = imageFile;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
-    final genero = prefs.getString('genero') ?? 'Femenino';
-    final edad = int.tryParse(prefs.getString('edad') ?? '25') ?? 25;
-    peso = double.tryParse(prefs.getString('pesoActual') ?? '60') ?? 60;
-    final alturaStr = prefs.getString('altura') ?? '165';
-    final tipoMeta = prefs.getString('tipoMeta') ?? 'mantener';
+    try {
+      final result = await accountRepositoryImpl.analyzeFoodWithGeminiImpl(imageFile);
+      detections = [result];
+      ToastWidget().toastSuccess("analisis completado con Gemini");
+      print("Resultado Gemini: $result");
 
-    double altura = double.tryParse(alturaStr.replaceAll(',', '.')) ?? 165;
-    if (altura < 10) altura *= 100;
+    } catch (e) {
+      ToastWidget().toastError("Error: $e");
+      debugPrint("error $e");
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
 
-    // 🔹 Calcular TDEE
-    double tdee = (genero == 'Masculino')
-        ? 10 * peso + 6.25 * altura - 5 * edad + 5
-        : 10 * peso + 6.25 * altura - 5 * edad - 161;
+  ///reinicia la barra + carga datos
+  Future<void> initUserData() async {
+    await reiniciarBarrasSiNuevoDia();
+    await cargarDatosUsuarioYCalcularMetas(firebaseAuth.currentUser!.uid);
+  }
 
-    if (tipoMeta == 'bajar') tdee *= 0.8;
-    if (tipoMeta == 'subir') tdee *= 1.15;
+  ///Cargar datos de Firestore + cálculos de TDEE
+  Future<void> obtenerDatos() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-    final user = _auth.currentUser;
-    if (user == null) return;
+      //Definir rango del día de hoy
+      final hoy = DateTime.now();
+      final inicioDia = DateTime(hoy.year, hoy.month, hoy.day);
+      final finDia = inicioDia.add(Duration(days: 1));
 
-    final now = DateTime.now();
-    final inicioDia = DateTime(now.year, now.month, now.day);
-    final finDia = inicioDia.add(const Duration(days: 1));
+      //Traer solo los datos del día de hoy
+      final snapshot = await FirebaseFirestore.instance
+          .collection('user_food_data')
+          .doc(user.uid)
+          .collection('foods')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia))
+          .where('timestamp', isLessThan: Timestamp.fromDate(finDia))
+          .get();
 
-    final snapshot = await _firestore
-        .collection('user_food_data')
-        .doc(user.uid)
-        .collection('foods')
-        .where('timestamp', isGreaterThanOrEqualTo: inicioDia)
-        .where('timestamp', isLessThan: finDia)
-        .get();
+      double totalCal = 0;
+      double prot = 0;
+      double carb = 0;
+      double fat = 0;
+      double fibra = 0;
 
-    double totalCal = 0;
-    double prot = 0;
-    double carb = 0;
-    double fat = 0;
-    double fibra = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
 
-    for (var doc in snapshot.docs) {
-      final detections = doc['detections'] as List<dynamic>;
-      for (var det in detections) {
-        final nutrition = det['nutrition'] as Map<String, dynamic>;
-        totalCal += (nutrition['calories'] ?? 0).toDouble();
-        prot += (nutrition['protein'] ?? 0).toDouble();
-        carb += (nutrition['carbs'] ?? 0).toDouble();
-        fat += (nutrition['fat'] ?? 0).toDouble();
-        fibra += (nutrition['fiber'] ?? 0).toDouble();
+        if (data['detections'] != null && data['detections'] is Map<String, dynamic>) {
+          final detections = data['detections'] as Map<String, dynamic>;
+          final nutrition = detections['nutrition'] as Map<String, dynamic>;
+
+          totalCal += (nutrition['calories'] ?? 0).toDouble();
+          prot += (nutrition['protein'] ?? 0).toDouble();
+          carb += (nutrition['carbs'] ?? 0).toDouble();
+          fat += (nutrition['fat'] ?? 0).toDouble();
+          fibra += (nutrition['fiber'] ?? 0).toDouble();
+        } else if (data['result'] != null && data['result'] is Map<String, dynamic>) {
+          final result = data['result'] as Map<String, dynamic>;
+          final nutrition = result['nutrition'] as Map<String, dynamic>;
+
+          totalCal += (nutrition['calories'] ?? 0).toDouble();
+          prot += (nutrition['protein'] ?? 0).toDouble();
+          carb += (nutrition['carbs'] ?? 0).toDouble();
+          fat += (nutrition['fat'] ?? 0).toDouble();
+          fibra += (nutrition['fiber'] ?? 0).toDouble();
+        }
       }
+
+      caloriasTotalesHoy = totalCal;
+      totalProteina = prot;
+      totalCarbs = carb;
+      totalGrasa = fat;
+      totalFibra = fibra;
+      notifyListeners();
+
+      print('Datos obtenidos correctamente $totalCal kcal del día de hoy');
+    } catch (e) {
+      print("Error en obtenerDatos: $e");
+    }
+  }
+
+  /// Calcular metas diarias (TDEE + macros) y ajustar por consumo actual
+  Future<void> cargarDatosUsuarioYCalcularMetas(String uid) async {
+    _loading = true;
+    notifyListeners();
+
+    try {
+      final user = firebaseAuth.currentUser;
+      if (user == null) throw Exception("Usuario no autenticado");
+      final userDoc = await firebaseFirestore.collection('users').doc(user.uid).get();
+
+      if (!userDoc.exists) {
+        debugPrint("No se encontró el usuario en Firestore");
+        return;
+      }
+
+      final data = userDoc.data()!;
+      debugPrint("Datos Firestore: $data");
+
+      //conversion datos de bd (string a int)
+      sexo = data['genero']?.toString() ?? 'Femenino';
+      objetivo = data['tipoMeta']?.toString() ?? 'mantener';
+      peso = double.tryParse((data['pesoActual'] ?? '0').toString().replaceAll(',', '.')) ?? 0;
+      altura = double.tryParse((data['altura'] ?? '0').toString().replaceAll(',', '.')) ?? 0;
+      edad = int.tryParse((data['edad'] ?? '0').toString()) ?? 0;
+      debugPrint("Datos usuario cargados: sexo=$sexo, edad=$edad, peso=$peso, altura=$altura, objetivo=$objetivo");
+
+      // calcula metas diarias
+      await calcularMetasDiarias();
+    } catch (e) {
+      print("Error al cargar y calcular metas: $e");
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Calcular metas diaria
+  Future<void> calcularMetasDiarias() async {
+    _loading = true;
+    notifyListeners();
+
+    try {
+      //obtiene datos firestore
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("Usuario no autenticado");
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = userDoc.data() ?? {};
+
+      sexo = data['genero']?.toString() ?? 'Femenino';
+      objetivo = data['tipoMeta']?.toString() ?? 'mantener';
+      peso = double.tryParse((data['pesoActual'] ?? '0').toString().replaceAll(',', '.')) ?? 0;
+      altura = double.tryParse((data['altura'] ?? '0').toString().replaceAll(',', '.')) ?? 0;
+      edad = int.tryParse((data['edad'] ?? '0').toString()) ?? 0;
+
+      //calcula a mr(cm) si es mennor a 3m
+      if (altura < 3) altura *= 100;
+
+      debugPrint("Calculando metas con estos datos:");
+      debugPrint("Sexo: $sexo");
+      debugPrint("Edad: $edad");
+      debugPrint("Peso: $peso kg");
+      debugPrint("Altura: $altura cm");
+      debugPrint("Objetivo: $objetivo");
+
+      //Calcular TDEE
+      double tdee = (sexo.toLowerCase() == 'masculino')
+          ? 10 * peso + 6.25 * altura - 5 * edad + 5
+          : 10 * peso + 6.25 * altura - 5 * edad - 161;
+
+      if (objetivo.toLowerCase() == 'bajar') tdee *= 0.8;
+      if (objetivo.toLowerCase() == 'subir') tdee *= 1.15;
+
+      //Macros
+      metasCalorias = tdee;
+      metasProteina = peso * 1.8;
+      metasGrasa = peso * 0.8;
+      metasCarbs = (tdee - ((metasProteina * 4) + (metasGrasa * 9))) / 4;
+      metasFibra = peso * 0.3;
+
+      debugPrint("Metas calculadas:");
+      debugPrint("Calorías: ${metasCalorias.toStringAsFixed(1)} kcal");
+      debugPrint("Proteína: ${metasProteina.toStringAsFixed(1)} g");
+      debugPrint("Grasa: ${metasGrasa.toStringAsFixed(1)} g");
+      debugPrint("Carbohidratos: ${metasCarbs.toStringAsFixed(1)} g");
+      debugPrint("Fibra: ${metasFibra.toStringAsFixed(1)} g");
+
+    } catch (e) {
+      debugPrint("Error calculando metas diarias: $e");
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  ///reinicia barras - diariamente
+  Future<void> reiniciarBarrasSiNuevoDia() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final hoy = DateTime.now();
+    final fechaUltimoRegistroStr = prefs.getString('fechaUltimoRegistro') ?? '';
+    DateTime? fechaUltimoRegistro;
+
+    if (fechaUltimoRegistroStr.isNotEmpty) {
+      fechaUltimoRegistro = DateTime.tryParse(fechaUltimoRegistroStr);
     }
 
-    caloriasTotalesHoy = totalCal;
-    caloriasObjetivo = tdee;
-    totalProteina = prot;
-    totalCarbs = carb;
-    totalGrasa = fat;
-    totalFibra = fibra;
+    if (fechaUltimoRegistro == null ||
+        fechaUltimoRegistro.day != hoy.day ||
+        fechaUltimoRegistro.month != hoy.month ||
+        fechaUltimoRegistro.year != hoy.year) {
 
-    _verificarNotificaciones();
-    cargando = false;
-    notifyListeners();
+      //reiniciar barras diarias
+      caloriasTotalesHoy = 0;
+      totalProteina = 0;
+      totalGrasa = 0;
+      totalCarbs = 0;
+      totalFibra = 0;
+
+      await prefs.setString('fechaUltimoRegistro', hoy.toIso8601String());
+      notifyListeners();
+      debugPrint("Nuevo día detectado: barras reiniciadas a 0");
+    }
   }
-//
-  ///  Nuevo método incremental (sin recargar toda la vista)
 
-///
-///
-  // En tu provider NutriScamModuleProvider
+  ///muestra las notificaciones
   bool _notificacion50 = false;
   bool _notificacion75 = false;
   bool _notificacion100 = false;
-
-  void actualizarValoresNutricionales({
-    required double calorias,
-    required double proteina,
-    required double grasa,
-    required double carbs,
-    required double fibra,
-  }) {
-    caloriasTotalesHoy += calorias;
-    totalProteina += proteina;
-    totalGrasa += grasa;
-    totalCarbs += carbs;
-    totalFibra += fibra;
-
-    _verificarNotificaciones();
-    notifyListeners(); // 🔄 Actualiza las barras al instante
-  }
 
   void _verificarNotificaciones() {
     if (caloriasObjetivo <= 0) return;
@@ -386,7 +398,14 @@ class NutriScamModuleProvider extends ChangeNotifier {
       _notificacion100 = true;
     }
   }
-///
-///
+
+
+  // --------------------------------------
+
+
+
+
+
+
 }
 

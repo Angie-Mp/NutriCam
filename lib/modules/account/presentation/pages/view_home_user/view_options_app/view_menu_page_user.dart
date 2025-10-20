@@ -1,5 +1,4 @@
 import 'package:NutriCam/core/values/colors.dart';
-import 'package:NutriCam/modules/account/data/data_sources/content_remote_data_sources_impl.dart';
 import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
 import 'package:NutriCam/modules/account/presentation/widgets/widget_menu_page/nutrienBarWidget.dart';
 import 'package:flutter/material.dart';
@@ -13,42 +12,32 @@ class ViewMenuPageUser extends StatefulWidget {
 }
 
 class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
-  bool notificacion50 = false, notificacion75 = false, notificacion100 = false;
-
   @override
   void initState() {
     super.initState();
-    AccountRepositoryImpl.init();
-
-    Future.microtask(() {
+    Future.microtask(() async {
       final provider =
       Provider.of<NutriScamModuleProvider>(context, listen: false);
-      provider.obtenerDatos();
+      await provider.initUserData();
+      await provider.obtenerDatos();
     });
   }
-
-
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NutriScamModuleProvider>(
-      builder: (_, progresoCalorias, __) {
-
-        final progreso = (progresoCalorias.caloriasObjetivo > 0)
-            ? (progresoCalorias.caloriasTotalesHoy / progresoCalorias.caloriasObjetivo).clamp(0.0, 1.0)
+      builder: (_, provider, __) {
+        // Calcular progreso de calorías
+        final progreso = (provider.metasCalorias > 0)
+            ? (provider.caloriasTotalesHoy / provider.metasCalorias).clamp(0.0, 1.0)
             : 0.0;
-
-        final metaProteina = progresoCalorias.peso * 1.8;
-        final metaGrasa = progresoCalorias.peso * 0.8;
-        final metaCarb = progresoCalorias.peso * 2.5;
-        final metaFibra = progresoCalorias.peso * 0.3;
 
         return Scaffold(
           body: Stack(
             children: [
-              // Fondo decorativo
               Container(
                 decoration: const BoxDecoration(
+                  color: colorWhite1,
                   image: DecorationImage(
                     image: AssetImage('assets/back/back5.png'),
                     fit: BoxFit.cover,
@@ -56,17 +45,20 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                 ),
               ),
 
-              // Contenido principal
               SingleChildScrollView(
                 child: Column(
                   children: [
+                    // Logo superior
                     Container(
-                      padding: EdgeInsets.fromLTRB(15, 35, 0, 0),
+                      padding: const EdgeInsets.fromLTRB(15, 35, 0, 0),
                       child: Row(
                         children: [
                           Image.asset('assets/logo/logo-app.png', height: 50),
                         ],
                       ),
+                    ),
+                    const SizedBox(
+                      height: 20,
                     ),
                     Image.asset('assets/iconos/nutri-salud.png', width: 90),
                     Padding(
@@ -74,7 +66,6 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          //barra de calorias
                           Stack(
                             alignment: Alignment.centerLeft,
                             children: [
@@ -94,13 +85,13 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        "${progresoCalorias.caloriasTotalesHoy.toStringAsFixed(0)} kcal",
+                                        "${provider.caloriasTotalesHoy.toStringAsFixed(0)} kcal",
                                         style: const TextStyle(
                                             color: colorBlack,
                                             fontWeight: FontWeight.bold),
                                       ),
                                       Text(
-                                        "${progresoCalorias.caloriasObjetivo.toStringAsFixed(0)} kcal",
+                                        "${provider.metasCalorias.toStringAsFixed(0)} kcal objetivo",
                                         style: const TextStyle(
                                             color: colorBlack,
                                             fontWeight: FontWeight.bold),
@@ -111,75 +102,111 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
-                              'Calorías ingeridas',
-                            style: TextStyle(
-                              color: colorBlack,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold
+                          const SizedBox(height: 15),
+                          Container(
+                            padding: EdgeInsets.fromLTRB(10, 5, 10, 5),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Expanded(
+                                  child: NutrientBarWidget(
+                                    nombre:
+                                    "Proteína",
+                                    valorActual: provider.totalProteina,
+                                    valorMeta: provider.metasProteina,
+                                    color: colorOrange2,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: NutrientBarWidget(
+                                    nombre:
+                                    "Grasas",
+                                    valorActual: provider.totalGrasa,
+                                    valorMeta: provider.metasGrasa,
+                                    color: colorGreen2,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: NutrientBarWidget(
+                                    nombre:
+                                    "Carbo.",
+                                    valorActual: provider.totalCarbs,
+                                    valorMeta: provider.metasCarbs,
+                                    color: colorBlue2,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: NutrientBarWidget(
+                                    nombre:
+                                    "Fibra",
+                                    valorActual: provider.totalFibra,
+                                    valorMeta: provider.metasFibra,
+                                    color: colorPurple,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          // Barras de nutrientes
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: NutrientBarWidget(
-                                  nombre: "Proteína",
-                                  valorActual: progresoCalorias.totalProteina,
-                                  valorMeta: metaProteina,
-                                  color: colorOrange2,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: NutrientBarWidget(
-                                  nombre: "Grasas",
-                                  valorActual: progresoCalorias.totalGrasa,
-                                  valorMeta: metaGrasa,
-                                  color: colorGreen2,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: NutrientBarWidget(
-                                  nombre: "Carbs",
-                                  valorActual: progresoCalorias.totalCarbs,
-                                  valorMeta: metaCarb,
-                                  color: colorBlue2,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: NutrientBarWidget(
-                                  nombre: "Fibra",
-                                  valorActual: progresoCalorias.totalFibra,
-                                  valorMeta: metaFibra,
-                                  color: colorPurple,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-
-
-                          const SizedBox(height: 20),
-
-                          if (progreso > 1)
-                            const Text(
-                              "🎉 ¡Has superado tu meta diaria!",
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
+                          //ver recomendaciones diariasama
+                          const SizedBox(height: 40),
+                         GestureDetector(
+                           onTap: (){},
+                           child: Container(
+                             padding: const EdgeInsets.all(15),
+                             decoration: BoxDecoration(
+                               color: colorWhite1,
+                               borderRadius: BorderRadius.circular(15),
+                               border: Border.all(
+                                 color: colorYellow,
+                                 width: 3,
+                               ),
+                             ),
+                             child: Row(
+                               crossAxisAlignment: CrossAxisAlignment.center,
+                               children: [
+                                 Container(
+                                     padding: const EdgeInsets.all(8),
+                                     decoration: BoxDecoration(
+                                       color: colorGreen2.withOpacity(0.15),
+                                       borderRadius: BorderRadius.circular(12),
+                                     ),
+                                     child: Image.asset(
+                                       'assets/iconos/comidas/almuerzo.png',
+                                       height: 45,
+                                     )
+                                 ),
+                                 const SizedBox(width: 15),
+                                 const Column(
+                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     Text(
+                                       "Alimentos de hoy",
+                                       style: TextStyle(
+                                         fontWeight: FontWeight.bold,
+                                         fontSize: 16,
+                                         color: colorBlack,
+                                       ),
+                                     ),
+                                     SizedBox(height: 4),
+                                     Text(
+                                       "Consulta tus comidas registradas del día",
+                                       style: TextStyle(
+                                         fontSize: 12,
+                                         color: colorGrey,
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                               ],
+                             ),
+                           ),
+                         )
                         ],
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),

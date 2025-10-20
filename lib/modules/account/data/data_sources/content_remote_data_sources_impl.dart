@@ -1,25 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:NutriCam/core/widget/toast_widget.dart';
 import 'package:NutriCam/modules/account/data/data_sources/content_remote_data_sources.dart';
-import 'package:NutriCam/modules/account/data/data_sources/permission/permissions_packages.dart';
+import 'package:NutriCam/modules/account/data/models/create_account_model.dart';
 import 'package:NutriCam/modules/account/data/models/create_objetive_user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:imagekit_io/imagekit_io.dart';
-import '../models/create_account_model.dart';
 import 'package:http/http.dart' as http;
 
-
 class AccountRepositoryImpl implements AccountRepository {
+  static final notifications = FlutterLocalNotificationsPlugin();
   final FirebaseFirestore firestore;
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
-
 
   AccountRepositoryImpl({FirebaseFirestore? firestore})
       : firestore = firestore ?? FirebaseFirestore.instance;
@@ -77,138 +71,13 @@ class AccountRepositoryImpl implements AccountRepository {
   Future<void> createObjectiveUserImpl(ObjetiveUserModel model) async {
     final user = firebaseAuth.currentUser;
     if (user == null) throw Exception("Usuario no autenticado");
-
     await firestore
         .collection('objetivosUsuario')
         .doc(user.uid)
         .set(model.toMap());
   }
 
-
-
-  /// Subir foto a ImageKit y guardar en Firestore
-  Future<void> savePhotoWithImageKitImpl({
-    required Uint8List bytes,
-    required List<Map<String, dynamic>> detections,
-    required Function(double progress) onProgress,
-  }) async {
-    final user = firebaseAuth.currentUser;
-    if (user == null) throw Exception("Usuario no autenticado");
-
-    // 🔹 Subir a ImageKit
-    final response = await ImageKit.io(
-      bytes,
-      fileName: "food_${DateTime.now().millisecondsSinceEpoch}.jpg",
-      privateKey: "private_z4loaV5mSeOO2CD8izHo8rerv5o=", // ⚠️ Mantener secreto
-      onUploadProgress: (progress) => onProgress(progress),
-    );
-
-    if (response.url == null) {
-      throw Exception("No se pudo obtener URL de ImageKit");
-    }
-
-    // 🔹 Guardar en Firestore
-    await firestore
-        .collection('user_food_data')
-        .doc(user.uid)
-        .collection('foods') // subcolección
-        .add({
-      'image_url': response.url,
-      'detections': detections,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-
-  /// ----------------------------
-  final Map<String, Map<String, dynamic>> _nutritionCache = {};
-
-  /// Analiza una imagen y devuelve una lista de resultados nutricionales
-  Future<List<Map<String, dynamic>>> analyzeFood(File image) async {
-    final uri = Uri.parse(ROBOFLOW_URL);
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(await http.MultipartFile.fromPath('file', image.path));
-
-    final streamedResp = await request.send();
-    final responseBody = await streamedResp.stream.bytesToString();
-    final parsed = jsonDecode(responseBody);
-
-    if (parsed == null || parsed['predictions'] == null) {
-      throw Exception("Respuesta inválida de Roboflow");
-    }
-
-    final List preds = parsed['predictions'] as List;
-    final futures = preds.map<Future<Map<String, dynamic>>>((item) async {
-      final rawLabel = (item['class'] ?? '').toString();
-      final label = rawLabel.toLowerCase().trim();
-
-      Map<String, dynamic>? nutrition = _nutritionCache[label];
-      if (nutrition == null) {
-        nutrition = await _getNutritionFromNutritionix(label);
-        _nutritionCache[label] = nutrition;
-      }
-
-      return {
-        'label': label,
-        'rawLabel': rawLabel,
-        'nutrition': nutrition,
-      };
-    }).toList();
-
-    return await Future.wait(futures);
-  }
-
-  /// Obtiene la información nutricional desde Nutritionix
-  Future<Map<String, dynamic>> _getNutritionFromNutritionix(String label) async {
-    try {
-      final url = Uri.parse("https://trackapi.nutritionix.com/v2/natural/nutrients");
-      final headers = {
-        "Content-Type": "application/json",
-        "x-app-id": NUTRITIONIX_APP_ID,
-        "x-app-key": NUTRITIONIX_APP_KEY,
-      };
-
-      final queries = ["1 $label", "1 serving of $label", label];
-
-      for (final q in queries) {
-        final resp = await http.post(url, headers: headers, body: jsonEncode({"query": q}));
-        if (resp.statusCode == 200) {
-          final data = jsonDecode(resp.body);
-          if (data['foods'] != null && (data['foods'] as List).isNotEmpty) {
-            final food = data['foods'][0];
-            return {
-              'calories': _safeToDouble(food['nf_calories']),
-              'protein': _safeToDouble(food['nf_protein']),
-              'fat': _safeToDouble(food['nf_total_fat']),
-              'carbs': _safeToDouble(food['nf_total_carbohydrate']),
-            };
-          }
-        }
-      }
-      return {};
-    } catch (e) {
-      print("Error Nutritionix: $e");
-      return {};
-    }
-  }
-
-  double? _safeToDouble(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v);
-    return null;
-  }
-
-/// ----------------------------
-
-  static final _noti = FlutterLocalNotificationsPlugin();
-
-  static Future<void> init() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
-    await _noti.initialize(initSettings);
-  }
-
+  ///mostrar notifiaciones
   static Future<void> show(String title, String body) async {
     const androidDetails = AndroidNotificationDetails(
       'calories_channel',
@@ -217,10 +86,170 @@ class AccountRepositoryImpl implements AccountRepository {
       priority: Priority.high,
     );
     const details = NotificationDetails(android: androidDetails);
-    await _noti.show(0, title, body, details);
+    await notifications.show(0, title, body, details);
   }
 
+  ///analiza img + gemini
+  Future<Map<String, dynamic>> analyzeFoodWithGeminiImpl(File image) async {
+    try {
+      print("analizando img");
 
+      //convierte img a base64
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      //obtiene usuario logueado
+      final user = firebaseAuth.currentUser;
+      if (user == null) throw Exception("Usuario no autenticado");
+
+      //lee datos logueado
+      final userDoc = await firestore.collection('users').doc(user.uid).get();
+      final userData = userDoc.data() ?? {};
+
+      final genero = userData['genero'] ?? 'Femenino';
+      final edad = userData['edad'] ?? 25;
+      final peso = userData['pesoActual'] ?? 60;
+      final pesoMeta = userData['pesoIdeal'] ?? 55;
+      final altura = userData['altura'] ?? 165;
+      final tipoMeta = userData['tipoMeta'] ?? 'mantener';
+
+      print("datos del usuario:");
+      print("  Genero: $genero - Edad: $edad - Peso: $peso - Meta: $pesoMeta - Altura: $altura - TipoMeta: $tipoMeta");
+
+      //prompt para usar gemnini
+      final prompt = """
+Eres un nutricionista profesional. El usuario te enviará una imagen de su comida.
+Usa la foto y los datos del usuario para dar un análisis realista.
+
+Datos del usuario:
+- Género: $genero
+- Edad: $edad años
+- Peso actual: $peso kg
+- Peso meta: $pesoMeta kg
+- Altura: $altura cm
+- Objetivo: $tipoMeta
+
+1️⃣ Identifica el alimento en la imagen.
+2️⃣ Estima su valor nutricional aproximado (calorías, proteínas, grasas, carbohidratos, fibra).
+3️⃣ Da una recomendación personalizada según su objetivo ("$tipoMeta").
+Responde en formato JSON así:
+{
+  "rawLabel": "Nombre del alimento",
+  "nutrition": {
+    "calories": number,
+    "protein": number,
+    "fat": number,
+    "carbs": number,
+    "fiber": number
+  },
+  "recommendation": "Texto breve con la sugerencia según su objetivo."
+}
+""";
+
+      //conecta al api de gemini
+      const apiKey = "AIzaSyApiSZYdi5NRMzwYIyZhpLJ3G1OhgtF640";
+      const model = "gemini-2.0-flash";
+      final url = Uri.parse(
+        "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey",
+      );
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": base64Image}}
+              ]
+            }
+          ]
+        }),
+      );
+
+      print("respuesta HTTP: ${response.statusCode}");
+      if (response.statusCode != 200) {
+        throw Exception("Error de Gemini: ${response.body}");
+      }
+      final data = jsonDecode(response.body);
+      final textResponse = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+      if (textResponse == null) throw Exception("Sin respuesta válida de Gemini");
+
+      //extrae la repsuesta en formato json
+      final jsonStart = textResponse.indexOf('{');
+      final jsonEnd = textResponse.lastIndexOf('}');
+      final jsonString = textResponse.substring(jsonStart, jsonEnd + 1);
+      final result = jsonDecode(jsonString);
+      print("resultado procesado: $result");
+
+      //guarda el analicis "user_food_data"
+      await firestore
+          .collection('user_food_data')
+          .doc(user.uid)
+          .collection('foods')
+          .add({
+        'image_path': image.path,
+        'detections': result,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      //guarda recomendaciones "recomendaciones"
+      await firestore
+          .collection('recomendaciones')
+          .doc(user.uid)
+          .collection('items')
+          .add({
+        'rawLabel': result['rawLabel'] ?? 'Desconocido',
+        'recommendation': result['recommendation'] ?? 'Sin recomendación',
+        'nutrition': result['nutrition'] ?? {},
+        'objetivoUsuario': tipoMeta,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print("guardado correctamente");
+      return result;
+    } catch (e, stack) {
+      print("error: $e");
+      print(stack);
+      rethrow;
+    }
+  }
+
+  ///calcula calorias diarias del usuario
+  static double calcularCaloriasDiarias({
+    required String genero,
+    required double peso,
+    required double altura,
+    required int edad,
+    required String objetivo,
+  }) {
+    double tdee = (genero.toLowerCase() == 'masculino')
+    //masculino
+        ? 10 * peso + 6.25 * altura - 5 * edad + 5
+    //femenino
+        : 10 * peso + 6.25 * altura - 5 * edad - 161;
+    if (objetivo.toLowerCase() == 'bajar') tdee *= 0.8;
+    if (objetivo.toLowerCase() == 'subir') tdee *= 1.15;
+    return tdee;
+  }
+
+  /// Calcula metas de macronutrientes segun TDEE y peso
+  static Map<String, double> calcularMetasMacros({
+    required double peso,
+    required double calorias,
+  }) {
+    //se divide segun el peso la cantidad que deben consumir (gr)
+    final proteina = peso * 1.8;
+    final grasa = peso * 0.8;
+    final carbs = (calorias - ((proteina * 4) + (grasa * 9))) / 4;
+    final fibra = peso * 0.3;
+    return {
+      "calorias": calorias,
+      "proteina": proteina,
+      "grasa": grasa,
+      "carbs": carbs,
+      "fibra": fibra,
+    };
+  }
 }
 
 

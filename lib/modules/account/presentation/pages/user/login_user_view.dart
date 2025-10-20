@@ -24,7 +24,6 @@ class LoginUserView extends StatelessWidget {
           final size = constraints.maxWidth / 100;
           return Container(
             width: size * 100,
-           // height: size * 100,
             decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage('assets/back/back4.png'),
@@ -77,12 +76,10 @@ class LoginUserView extends StatelessWidget {
                      onPressed: () => buttonLoginFunction(context, provider),
                    ),
                  ),
-
                ],
              ),
            ),
           );
-
         }
       ),
     )
@@ -97,7 +94,6 @@ class LoginUserView extends StatelessWidget {
       ToastWidget().toastError("Por favor ingresa correo y contraseña");
       return;
     }
-
     final success = await provider.loginUserAccount(email, password);
     if (success) {
       ToastWidget().toastSuccess('Sesión iniciada correctamente');

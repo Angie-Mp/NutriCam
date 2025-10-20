@@ -1,14 +1,16 @@
 import 'dart:io';
-import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
+import 'package:NutriCam/core/values/colors.dart';
+import 'package:NutriCam/core/widget/toast_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
 
 class ViewCameraPageUser extends StatefulWidget {
   const ViewCameraPageUser({Key? key}) : super(key: key);
 
   @override
-  _ViewCameraPageUserState createState() => _ViewCameraPageUserState();
+  State<ViewCameraPageUser> createState() => _ViewCameraPageUserState();
 }
 
 class _ViewCameraPageUserState extends State<ViewCameraPageUser> {
@@ -19,46 +21,33 @@ class _ViewCameraPageUserState extends State<ViewCameraPageUser> {
     if (photo == null) return;
 
     final file = File(photo.path);
-    await context.read<NutriScamModuleProvider>().analyzeFood(file);
-  }
-
-  void _clearData(BuildContext context) {
     final provider = context.read<NutriScamModuleProvider>();
-    provider.clear();
+
+    ToastWidget().toastSuccess("Analizando imagen con Gemini..");
+    await provider.analyzeFoodWithGemini(file);
   }
 
   @override
   Widget build(BuildContext context) {
     final foodProvider = context.watch<NutriScamModuleProvider>();
-    final firebaseProvider = context.watch<NutriScamModuleProvider>();
-    const double displayHeight = 360.0;
-
-    // 🔹 Evitar duplicados de alimentos detectados
-    final uniqueDetections = <String, Map<String, dynamic>>{};
-    for (var det in foodProvider.detections) {
-      final label = det['rawLabel']?.toString().toLowerCase() ?? '';
-      if (!uniqueDetections.containsKey(label)) {
-        uniqueDetections[label] = det;
-      }
-    }
+    final bool loading = foodProvider.loading;
+    final detections = foodProvider.detections;
+    const double displayHeight = 360;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tomar Foto de Comida'),
-        backgroundColor: Colors.green[700],
-      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+       // padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Image.asset('assets/iconos/button_navigator/home.png'),
+            Container(
+              padding: const EdgeInsets.fromLTRB(15, 35, 0, 0),
+              color: colorGrey,
+            ),
+            if (loading) const LinearProgressIndicator(),
 
-            if (foodProvider.loading || firebaseProvider.loading)
-              const LinearProgressIndicator(),
+            const SizedBox(height: 12),
 
-            const SizedBox(height: 8),
-
-            // 🔹 Imagen con botón de eliminar
+            // 📷 Imagen o placeholder
             if (foodProvider.image != null)
               Stack(
                 alignment: Alignment.topRight,
@@ -66,7 +55,7 @@ class _ViewCameraPageUserState extends State<ViewCameraPageUser> {
                   Image.file(foodProvider.image!, height: displayHeight),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.red, size: 28),
-                    onPressed: () => _clearData(context),
+                    onPressed: () => foodProvider.clear(),
                   ),
                 ],
               )
@@ -74,85 +63,85 @@ class _ViewCameraPageUserState extends State<ViewCameraPageUser> {
               Container(
                 height: displayHeight,
                 color: Colors.grey[200],
-                child: const Center(child: Text('📷 No hay foto')),
+                child: const Center(child: Text("📸 Toma una foto para analizar")),
               ),
 
             const SizedBox(height: 16),
 
-            // 🔹 Mostrar los alimentos detectados sin duplicados
-            if (uniqueDetections.isNotEmpty)
-              Column(
-                children: uniqueDetections.values.map((det) {
-                  final nutrition =
-                      det['nutrition'] as Map<String, dynamic>? ?? {};
-                  final calories = nutrition['calories'] ?? 'N/D';
-                  final protein = nutrition['protein'] ?? 'N/D';
-                  final fat = nutrition['fat'] ?? 'N/D';
-                  final carbs = nutrition['carbs'] ?? 'N/D';
-                  final fiber = nutrition['fiber'] ?? 'N/D'; // 👈 agregado
-
-                  return Card(
-                    elevation: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: ListTile(
-                      leading: const Icon(Icons.fastfood, color: Colors.green),
-                      title: Text(
-                        det['rawLabel'] ?? 'Alimento',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        "Cal: $calories kcal | "
-                            "Prot: $protein g | "
-                            "Gras: $fat g | "
-                            "Carb: $carbs g | "
-                            "Fibra: $fiber g", // 👈 agregado
-                      ),
-                    ),
-                  );
-                }).toList(),
+            // 🧠 Resultados de Gemini
+            if (detections.isNotEmpty)
+              _buildResultCard(detections.first)
+            else if (!loading)
+              const Text(
+                "Aún no hay resultados",
+                style: TextStyle(color: Colors.grey),
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
+            // 📸 Botón de cámara
             ElevatedButton.icon(
-              onPressed: () => _takePhoto(context),
+              onPressed: loading ? null : () => _takePhoto(context),
               icon: const Icon(Icons.camera_alt),
-              label: const Text('Tomar Foto'),
+              label: const Text("Tomar Foto"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[600],
                 foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 48),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 8),
+  /// Tarjeta con los resultados procesados por Gemini
+  Widget _buildResultCard(Map<String, dynamic> det) {
+    final rawLabel = det['rawLabel'] ?? 'Alimento no identificado';
+    final nutrition = det['nutrition'] ?? {};
+    final rec = det['recommendation'] ?? 'Sin recomendación disponible';
 
-            ElevatedButton.icon(
-              onPressed: firebaseProvider.loading
-                  ? null
-                  : () async {
-                if (foodProvider.image != null &&
-                    foodProvider.detections.isNotEmpty) {
-                  await firebaseProvider.savePhotoWithImageKit(
-                    foodProvider.image!,
-                    foodProvider.detections,
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Toma una foto antes de guardar'),
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.fastfood, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    rawLabel,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Guardar en Firestore'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-              ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            Text(
+              "🍽️ Información nutricional aproximada:",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text("• Calorías: ${nutrition['calories'] ?? 'N/D'} kcal"),
+            Text("• Proteínas: ${nutrition['protein'] ?? 'N/D'} g"),
+            Text("• Grasas: ${nutrition['fat'] ?? 'N/D'} g"),
+            Text("• Carbohidratos: ${nutrition['carbs'] ?? 'N/D'} g"),
+            Text("• Fibra: ${nutrition['fiber'] ?? 'N/D'} g"),
+            const SizedBox(height: 12),
+            Text(
+              "💡 Recomendación:",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(rec),
           ],
         ),
       ),

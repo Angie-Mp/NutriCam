@@ -1,3 +1,4 @@
+/*
 import 'package:NutriCam/modules/account/presentation/pages/view_home_user/home_page_admi.dart';
 import 'package:NutriCam/modules/account/presentation/pages/view_home_user/photo_view_admi.dart';
 import 'package:flutter/material.dart';
@@ -44,3 +45,5 @@ class _ViewMainUserState extends State<ViewMainUser> {
     );
   }
 }
+
+ */

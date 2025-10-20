@@ -1,3 +1,4 @@
+/*
 import 'dart:io';
 import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
 import 'package:flutter/material.dart';
@@ -120,3 +121,5 @@ class _TakePhotoPageState extends State<TakePhotoPage> {
     );
   }
 }
+
+ */
