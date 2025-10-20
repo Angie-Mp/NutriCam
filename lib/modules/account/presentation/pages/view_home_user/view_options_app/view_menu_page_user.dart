@@ -45,6 +45,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                 ),
               ),
 
+              //
               SingleChildScrollView(
                 child: Column(
                   children: [
@@ -152,7 +153,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                           ),
                           //ver recomendaciones diariasama
                           const SizedBox(height: 40),
-                         GestureDetector(
+                          GestureDetector(
                            onTap: (){},
                            child: Container(
                              padding: const EdgeInsets.all(15),
