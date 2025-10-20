@@ -151,7 +151,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                               ],
                             ),
                           ),
-                          //ver recomendaciones diariasama
+                          //ver recomendaciones diarias
                           const SizedBox(height: 40),
                           GestureDetector(
                            onTap: (){},
