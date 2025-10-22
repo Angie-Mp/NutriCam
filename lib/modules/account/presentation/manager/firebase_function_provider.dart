@@ -400,12 +400,5 @@ class NutriScamModuleProvider extends ChangeNotifier {
   }
 
 
-  // --------------------------------------
-
-
-
-
-
-
 }
 

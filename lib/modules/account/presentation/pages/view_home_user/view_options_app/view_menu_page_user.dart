@@ -1,5 +1,6 @@
 import 'package:NutriCam/core/values/colors.dart';
 import 'package:NutriCam/modules/account/presentation/manager/firebase_function_provider.dart';
+import 'package:NutriCam/modules/account/presentation/pages/user/aliment_day/food_of_the_day.dart';
 import 'package:NutriCam/modules/account/presentation/widgets/widget_menu_page/nutrienBarWidget.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -154,7 +155,14 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                           //ver recomendaciones diarias
                           const SizedBox(height: 40),
                           GestureDetector(
-                           onTap: (){},
+                           onTap: (){
+                             Navigator.push(
+                               context,
+                               MaterialPageRoute(
+                                 builder: (context) => FoodOfTheDay(),
+                               ),
+                             );
+                           },
                            child: Container(
                              padding: const EdgeInsets.all(15),
                              decoration: BoxDecoration(

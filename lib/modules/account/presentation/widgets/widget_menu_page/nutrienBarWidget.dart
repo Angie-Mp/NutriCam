@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class NutrientBarWidget extends StatelessWidget {
   final String nombre;
   final double valorActual;
-  final double valorMeta;
+  final double? valorMeta;
   final Color color;
   final double fontSize;
 
@@ -11,15 +11,15 @@ class NutrientBarWidget extends StatelessWidget {
     Key? key,
     required this.nombre,
     required this.valorActual,
-    required this.valorMeta,
+    this.valorMeta,
     required this.color,
     this.fontSize = 12,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final double progreso = valorMeta > 0
-        ? (valorActual / valorMeta).clamp(0.0, 1.0)
+    final double progreso = valorMeta! > 0
+        ? (valorActual / valorMeta!).clamp(0.0, 1.0)
         : 0.0;
 
     return Column(
@@ -44,9 +44,9 @@ class NutrientBarWidget extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          "${valorActual.toStringAsFixed(1)} / ${valorMeta.toStringAsFixed(1)}g",
+          "${valorActual.toStringAsFixed(1)} / ${valorMeta?.toStringAsFixed(1)}g",
           style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: Colors.black45
           ),
         ),

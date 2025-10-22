@@ -129,9 +129,9 @@ Datos del usuario:
 - Altura: $altura cm
 - Objetivo: $tipoMeta
 
-1️⃣ Identifica el alimento en la imagen.
-2️⃣ Estima su valor nutricional aproximado (calorías, proteínas, grasas, carbohidratos, fibra).
-3️⃣ Da una recomendación personalizada según su objetivo ("$tipoMeta").
+1 Identifica el alimento en la imagen.
+2 Estima su valor nutricional aproximado (calorías, proteínas, grasas, carbohidratos, fibra).
+3 Da una recomendación personalizada según su objetivo ("$tipoMeta").
 Responde en formato JSON así:
 {
   "rawLabel": "Nombre del alimento",

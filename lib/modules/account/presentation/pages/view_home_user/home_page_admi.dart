@@ -15,7 +15,9 @@ class _HomePageAdmiState extends State<HomePageAdmi> {
 
   final List<Widget> selectPages = [
     ViewMenuPageUser(),
-    ViewCameraPageUser(),
+    ViewCameraPageUser(
+
+    ),
     Center(child: Text('Perfil')),
   ];
 
