@@ -25,6 +25,7 @@ dependencies:
   imagekit_io: ^0.0.3
   shared_preferences: ^2.3.2
   flutter_local_notifications: ^17.1.0
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:

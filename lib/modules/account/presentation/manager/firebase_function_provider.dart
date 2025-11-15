@@ -399,6 +399,105 @@ class NutriScamModuleProvider extends ChangeNotifier {
     }
   }
 
+  /// Carga los datos del usuario actualmente logueado desde Firestore
+  Future<void> loadCurrentUser() async {
+    _loading = true;
+    notifyListeners();
+
+    try {
+      final user = firebaseAuth.currentUser;
+      if (user == null) {
+        _createAccountUserModel = null;
+        _loading = false;
+        notifyListeners();
+        return;
+      }
+
+      final doc = await firebaseFirestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) {
+        _createAccountUserModel = null;
+        _loading = false;
+        notifyListeners();
+        return;
+      }
+
+      final data = doc.data()!;
+      _createAccountUserModel = CreateAccountUserModel(
+        uid: user.uid,
+        nombre: data['nombre'] ?? '',
+        apellido: data['apellido'] ?? '',
+        edad: data ['edad'] ?? '',
+        genero: data['genero'] ?? '',
+        pesoActual: data['pesoActual']?? '',
+        pesoIdeal: data['pesoIdeal'] ?? '',
+        email: data['email'] ?? '',
+        emailVerified: data['emailVerified'] ?? false,
+        altura: '',
+      );
+
+      // Opcional: recalcular metas
+      await cargarDatosUsuarioYCalcularMetas(user.uid);
+    } catch (e) {
+      debugPrint("Error cargando usuario logueado: $e");
+      _createAccountUserModel = null;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> obtenerDatosPorFecha(DateTime fecha) async {
+    _loading = true;
+    notifyListeners();
+
+    try {
+      final user = firebaseAuth.currentUser;
+      if (user == null) return;
+
+      final inicioDia = DateTime(fecha.year, fecha.month, fecha.day);
+      final finDia = inicioDia.add(const Duration(days: 1));
+
+      final snapshot = await firebaseFirestore
+          .collection('user_food_data')
+          .doc(user.uid)
+          .collection('foods')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia))
+          .where('timestamp', isLessThan: Timestamp.fromDate(finDia))
+          .get();
+
+      double totalCal = 0;
+      double prot = 0;
+      double carb = 0;
+      double fat = 0;
+      double fibra = 0;
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (data['detections'] != null && data['detections'] is Map<String, dynamic>) {
+          final detections = data['detections'] as Map<String, dynamic>;
+          final nutrition = detections['nutrition'] as Map<String, dynamic>;
+          totalCal += (nutrition['calories'] ?? 0).toDouble();
+          prot += (nutrition['protein'] ?? 0).toDouble();
+          carb += (nutrition['carbs'] ?? 0).toDouble();
+          fat += (nutrition['fat'] ?? 0).toDouble();
+          fibra += (nutrition['fiber'] ?? 0).toDouble();
+        }
+      }
+
+      caloriasTotalesHoy = totalCal;
+      totalProteina = prot;
+      totalCarbs = carb;
+      totalGrasa = fat;
+      totalFibra = fibra;
+
+    } catch (e) {
+      debugPrint("Error en obtenerDatosPorFecha: $e");
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
 
 }
 

@@ -4,6 +4,7 @@ import 'package:NutriCam/modules/account/presentation/pages/user/aliment_day/foo
 import 'package:NutriCam/modules/account/presentation/widgets/widget_menu_page/nutrienBarWidget.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class ViewMenuPageUser extends StatefulWidget {
   const ViewMenuPageUser({Key? key}) : super(key: key);
@@ -13,6 +14,8 @@ class ViewMenuPageUser extends StatefulWidget {
 }
 
 class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
+  DateTime selectedDate = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -20,15 +23,51 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
       final provider =
       Provider.of<NutriScamModuleProvider>(context, listen: false);
       await provider.initUserData();
-      await provider.obtenerDatos();
+      await provider.obtenerDatosPorFecha(selectedDate);
     });
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final provider = Provider.of<NutriScamModuleProvider>(context, listen: false);
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+     //locale: const Locale('es', 'ES'),
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialEntryMode: DatePickerEntryMode.calendar,
+      helpText: 'Selecciona una fecha',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: colorPurple,
+            onPrimary: Colors.white,
+            onSurface: colorBlack,
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(foregroundColor: colorPurple),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+
+      // Actualiza los datos del provider para la fecha seleccionada
+      await provider.obtenerDatosPorFecha(selectedDate);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NutriScamModuleProvider>(
       builder: (_, provider, __) {
-        // Calcular progreso de calorías
         final progreso = (provider.metasCalorias > 0)
             ? (provider.caloriasTotalesHoy / provider.metasCalorias).clamp(0.0, 1.0)
             : 0.0;
@@ -45,8 +84,6 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                   ),
                 ),
               ),
-
-              //
               SingleChildScrollView(
                 child: Column(
                   children: [
@@ -59,10 +96,10 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                         ],
                       ),
                     ),
-                    const SizedBox(
-                      height: 20,
-                    ),
+                    const SizedBox(height: 20),
                     Image.asset('assets/iconos/nutri-salud.png', width: 90),
+
+                    // Barras nutricionales
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25),
                       child: Column(
@@ -106,14 +143,13 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                           ),
                           const SizedBox(height: 15),
                           Container(
-                            padding: EdgeInsets.fromLTRB(10, 5, 10, 5),
+                            padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 Expanded(
                                   child: NutrientBarWidget(
-                                    nombre:
-                                    "Proteína",
+                                    nombre: "Proteína",
                                     valorActual: provider.totalProteina,
                                     valorMeta: provider.metasProteina,
                                     color: colorOrange2,
@@ -122,8 +158,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: NutrientBarWidget(
-                                    nombre:
-                                    "Grasas",
+                                    nombre: "Grasas",
                                     valorActual: provider.totalGrasa,
                                     valorMeta: provider.metasGrasa,
                                     color: colorGreen2,
@@ -132,8 +167,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: NutrientBarWidget(
-                                    nombre:
-                                    "Carbo.",
+                                    nombre: "Carbo.",
                                     valorActual: provider.totalCarbs,
                                     valorMeta: provider.metasCarbs,
                                     color: colorBlue2,
@@ -142,8 +176,7 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: NutrientBarWidget(
-                                    nombre:
-                                    "Fibra",
+                                    nombre: "Fibra",
                                     valorActual: provider.totalFibra,
                                     valorMeta: provider.metasFibra,
                                     color: colorPurple,
@@ -152,67 +185,97 @@ class _ViewMenuPageUserState extends State<ViewMenuPageUser> {
                               ],
                             ),
                           ),
-                          //ver recomendaciones diarias
-                          const SizedBox(height: 40),
+
+                          const SizedBox(height: 30),
+                          //seleccionar fecha
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () => _selectDate(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorPurple,
+                                    foregroundColor: colorWhite1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  // Mostrar fecha actual o seleccionada
+                                  child: Text(
+                                    DateFormat('dd/MM/yyyy').format(selectedDate),
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                           GestureDetector(
-                           onTap: (){
-                             Navigator.push(
-                               context,
-                               MaterialPageRoute(
-                                 builder: (context) => FoodOfTheDay(),
-                               ),
-                             );
-                           },
-                           child: Container(
-                             padding: const EdgeInsets.all(15),
-                             decoration: BoxDecoration(
-                               color: colorWhite1,
-                               borderRadius: BorderRadius.circular(15),
-                               border: Border.all(
-                                 color: colorYellow,
-                                 width: 3,
-                               ),
-                             ),
-                             child: Row(
-                               crossAxisAlignment: CrossAxisAlignment.center,
-                               children: [
-                                 Container(
-                                     padding: const EdgeInsets.all(8),
-                                     decoration: BoxDecoration(
-                                       color: colorGreen2.withOpacity(0.15),
-                                       borderRadius: BorderRadius.circular(12),
-                                     ),
-                                     child: Image.asset(
-                                       'assets/iconos/comidas/almuerzo.png',
-                                       height: 45,
-                                     )
-                                 ),
-                                 const SizedBox(width: 15),
-                                 const Column(
-                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                   children: [
-                                     Text(
-                                       "Alimentos de hoy",
-                                       style: TextStyle(
-                                         fontWeight: FontWeight.bold,
-                                         fontSize: 16,
-                                         color: colorBlack,
-                                       ),
-                                     ),
-                                     SizedBox(height: 4),
-                                     Text(
-                                       "Consulta tus comidas registradas del día",
-                                       style: TextStyle(
-                                         fontSize: 12,
-                                         color: colorGrey,
-                                       ),
-                                     ),
-                                   ],
-                                 ),
-                               ],
-                             ),
-                           ),
-                         )
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FoodOfTheDay(
+                                    selectedDate: selectedDate,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                color: colorWhite1,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: colorYellow,
+                                  width: 3,
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: colorGreen2.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Image.asset(
+                                      'assets/iconos/comidas/almuerzo.png',
+                                      height: 45,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 15),
+                                  const Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Alimentos de hoy",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: colorBlack,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        "Consulta tus comidas registradas del día",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorGrey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     )

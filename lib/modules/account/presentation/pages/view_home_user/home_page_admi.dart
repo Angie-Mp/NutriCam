@@ -1,6 +1,7 @@
 import 'package:NutriCam/core/values/colors.dart';
 import 'package:NutriCam/modules/account/presentation/pages/view_home_user/view_options_app/view_camera_page_user.dart';
 import 'package:NutriCam/modules/account/presentation/pages/view_home_user/view_options_app/view_menu_page_user.dart';
+import 'package:NutriCam/modules/account/presentation/pages/view_home_user/view_options_app/view_perfil_page.dart';
 import 'package:flutter/material.dart';
 
 class HomePageAdmi extends StatefulWidget {
@@ -15,10 +16,8 @@ class _HomePageAdmiState extends State<HomePageAdmi> {
 
   final List<Widget> selectPages = [
     ViewMenuPageUser(),
-    ViewCameraPageUser(
-
-    ),
-    Center(child: Text('Perfil')),
+    ViewCameraPageUser(),
+    ViewPerfilPage(),
   ];
 
   void onTapOptionButtons(int index) {

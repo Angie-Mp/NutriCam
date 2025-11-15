@@ -10,7 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class FoodOfTheDay extends StatefulWidget {
-  const FoodOfTheDay({Key? key}) : super(key: key);
+  const FoodOfTheDay({Key? key, required DateTime selectedDate}) : super(key: key);
 
   @override
   State<FoodOfTheDay> createState() => _FoodOfTheDayState();
