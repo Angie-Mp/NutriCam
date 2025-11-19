@@ -16,7 +16,7 @@ void main() async {
 
   runApp(
     DevicePreview(
-      enabled: true, // Cambia a false en producción
+      enabled: false, // Cambia a false en producción
       builder: (context) => const MyApp(),
     ),
   );
